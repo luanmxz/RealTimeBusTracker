@@ -1,5 +1,7 @@
 package com.devluanmarcene.RealTimeBusTracker.service;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.http.MediaType;
@@ -7,9 +9,11 @@ import org.springframework.stereotype.Service;
 
 import com.devluanmarcene.RealTimeBusTracker.config.Constants;
 import com.devluanmarcene.RealTimeBusTracker.config.WebClientConfig;
+import com.devluanmarcene.RealTimeBusTracker.helpers.HaversineUtils;
 import com.devluanmarcene.RealTimeBusTracker.model.Agency;
 import com.devluanmarcene.RealTimeBusTracker.model.AgencyList;
-import com.devluanmarcene.RealTimeBusTracker.model.BodyPredictions;
+import com.devluanmarcene.RealTimeBusTracker.model.LatLng;
+import com.devluanmarcene.RealTimeBusTracker.model.Route;
 import com.devluanmarcene.RealTimeBusTracker.model.RouteList;
 import com.devluanmarcene.RealTimeBusTracker.model.Travel;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -21,6 +25,9 @@ import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 @Service
 public class BusTrackService {
@@ -33,16 +40,8 @@ public class BusTrackService {
         this.constants = constants;
     }
 
-    public Mono<BodyPredictions> getNearbyBuses(Travel travel)
+    public Flux<Route> getNearbyBuses(Travel travel)
             throws JsonMappingException, JsonProcessingException {
-
-        System.out
-                .println(String.format("\nUser in:\n - Latitude: %f\n - Longitude: %f\n", travel.latFrom(),
-                        travel.lonFrom()));
-
-        System.out
-                .println(String.format("\nDestination in:\n - Latitude: %f\n - Longitude: %f\n", travel.latTo(),
-                        travel.lonTo()));
 
         Mono<AgencyList> monoAgencyList = getAgencies().map(xmlString -> {
             return doXmlMapping(xmlString, AgencyList.class);
@@ -50,24 +49,46 @@ public class BusTrackService {
 
         Mono<List<RouteList>> routeListMono = monoAgencyList
                 .flatMap(agencyList -> Flux.fromIterable(agencyList.getAgencies())
-                        .flatMap(this::getAgencyRoutes)
-                        .map(xml -> doXmlMapping(xml, RouteList.class))
+                        .flatMap(agency -> getAgencyRoutes(agency)
+                                .flatMap(xml -> Mono
+                                        .fromCallable(() -> doXmlMapping(xml,
+                                                RouteList.class))
+                                        .subscribeOn(Schedulers
+                                                .boundedElastic()))
+                                .map(routeList -> {
+                                    return RouteList.createWithAgencyTag(routeList,
+                                            agency.getTag());
+                                }))
                         .collectList());
 
-        routeListMono.doOnNext(list -> list.forEach(r -> System.out.println(r)))
-                .subscribe();
+        Flux<Route> fluxRoute = routeListMono
+                .flatMapMany(list -> Flux.fromIterable(list == null ? Collections.emptyList() : list))
+                .flatMap(routeList -> Flux
+                        .fromIterable(routeList.routes() == null ? Collections.emptyList()
+                                : routeList.routes())
+                        .map(route -> Route.createWithAgencyTag(route, routeList.agencyTag())));
 
+        Flux<Route> orderedRoute = fluxRoute.map(route -> {
+            double distance = route.stops().stream()
+                    .mapToDouble(stop -> HaversineUtils.distanceMeters(
+                            new LatLng(travel.latTo(), travel.lonTo()),
+                            new LatLng(stop.lat(), stop.lon())))
+                    .min()
+                    .orElse(Double.MAX_VALUE);
+
+            return Tuples.of(route, distance);
+        }).sort(Comparator.comparingDouble(Tuple2::getT2)).map(Tuple2::getT1);
+
+        Flux<Route> filteredRoutes = orderedRoute.filter(route -> route.stops().stream().anyMatch(stop -> {
+            LatLng userDestination = new LatLng(travel.latTo(), travel.lonTo());
+            LatLng busDestination = new LatLng(stop.lat(), stop.lon());
+            double distance = HaversineUtils.distanceMeters(userDestination, busDestination);
+
+            return distance <= 1000;
+        }));
+
+        return filteredRoutes;
         /*
-         * System.out.println("AGENCY TAG -> " +
-         * monoAgencyList.block().getAgencies().get(0).getTag());
-         * Mono<String> xmlRouteList = monoAgencyList
-         * .flatMap(agencyList -> getAgencyRoutes(agencyList.getAgencies().get(0)));
-         * Mono<RouteList> monoRouteList = xmlRouteList.map(xmlString -> {
-         * return doXmlMapping(xmlString, RouteList.class);
-         * });
-         * System.out.println(
-         * "ROUTE LIST 0 STOP 0 STOP ID -> " +
-         * monoRouteList.block().routes().get(0).stops().get(0).stopId());
          * 
          * // Mono<String> xmlBodyPredicitons = monoRouteList
          * // .flatMap(routeList -> getPredictionByStopId("jhu-apl",
@@ -79,7 +100,6 @@ public class BusTrackService {
          * // });
          * 
          */
-        return null;
     }
 
     public Mono<String> getAgencies() {
@@ -91,7 +111,8 @@ public class BusTrackService {
 
     public Mono<String> getAgencyRoutes(Agency agency) {
         return webClientConfig.getWebClient().get()
-                .uri("https://retro.umoiq.com/service/publicXMLFeed?command=routeConfig&a={agencyTag}", agency.getTag())
+                .uri("https://retro.umoiq.com/service/publicXMLFeed?command=routeConfig&a={agencyTag}",
+                        agency.getTag())
                 .retrieve().bodyToMono(String.class);
     }
 
@@ -140,7 +161,8 @@ public class BusTrackService {
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                     .configure(MapperFeature.INFER_CREATOR_FROM_CONSTRUCTOR_PROPERTIES, true)
                     .build();
-            xmlMapper.registerModule(new ParameterNamesModule()); // vincula nomes de parâmetros ao construtor
+            xmlMapper.registerModule(new ParameterNamesModule()); // vincula nomes de parâmetros ao
+                                                                  // construtor
             // (records)
             return xmlMapper.readValue(xmlString, desiredClass);
         } catch (JsonProcessingException e) {

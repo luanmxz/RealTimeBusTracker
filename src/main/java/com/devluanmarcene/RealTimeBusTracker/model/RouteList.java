@@ -10,5 +10,10 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 @JacksonXmlRootElement(localName = "body")
 @JsonIgnoreProperties(value = "copyright")
 public record RouteList(
-        @JacksonXmlElementWrapper(useWrapping = false) @JacksonXmlProperty(localName = "route") List<Route> routes) {
+                @JacksonXmlElementWrapper(useWrapping = false) @JacksonXmlProperty(localName = "route") List<Route> routes,
+                String agencyTag) {
+
+        public static RouteList createWithAgencyTag(RouteList routeList, String agencyTag) {
+                return new RouteList(routeList.routes(), agencyTag);
+        }
 }
