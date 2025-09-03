@@ -1,10 +1,10 @@
-package com.devluanmarcene.RealTimeAirTracker;
+package com.devluanmarcene.RealTimeBusTracker;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class RealTimeAirTrackerApplicationTests {
+class RealTimeBusTrackerApplicationTests {
 
 	@Test
 	void contextLoads() {
