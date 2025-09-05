@@ -18,8 +18,14 @@
 
 <body>
     <h1>Real Time Bus Tracker</h1>
-    <button id="btn-get-location">Update My Location</button>
-    <button id="btn-get-routes">Get Routes</button>
+    <select id="agency-select">
+        <option value="">Select a Agency</option>
+    </select>
+
+    <button id="btn-close-connection" disabled>Close Connection</button>
+    <div id="map-overlay">
+        <img src="bus-loading.gif" alt="Loading..." />
+    </div>
     <div id="map"></div>
 
 </body>

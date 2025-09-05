@@ -26,4 +26,11 @@ public record Route(
                                 route.latMin(), route.latMax(), route.lonMin(), route.lonMax(), route.stops(),
                                 route.direction(), route.paths());
         }
+
+        public static Route createWithStops(Route route, List<Stop> stops) {
+                return new Route(route.tag(), route.title(), route.shortTitle(), route.color(), route.oppositeColor(),
+                                route.agencyTag(),
+                                route.latMin(), route.latMax(), route.lonMin(), route.lonMax(), stops,
+                                route.direction(), route.paths());
+        }
 }

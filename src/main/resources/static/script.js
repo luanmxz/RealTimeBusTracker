@@ -1,11 +1,31 @@
-var map = L.map('map').setView([51.505, -0.09], 13);
+let userPosition = { lat: 0, lon: 0 };
+let paths = [{ points: [] }, { points: [] }];
+let stops = {
+	points: [],
+};
+let evtSource = null;
+let map = L.map('map').setView([51.505, -0.09], 13);
+let routesLayerGroup = L.layerGroup().addTo(map);
+let isMonitoring = false;
+
+let bntCloseConnection = document.getElementById('btn-close-connection');
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 	maxZoom: 19,
 	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
-document.getElementById('btn-get-location').onclick = function () {
+document.getElementById('btn-close-connection').onclick = function () {
+	if (evtSource != null) {
+		closeEventSource(evtSource);
+	}
+};
+
+function error() {
+	alert('Unable to retrieve your location');
+}
+
+window.onload = function () {
 	if (navigator.geolocation) {
 		navigator.geolocation.getCurrentPosition(success, error);
 	} else {
@@ -13,63 +33,103 @@ document.getElementById('btn-get-location').onclick = function () {
 	}
 };
 
-let userPosition = { lat: 0, lon: 0 };
-
 function success(position) {
 	//var marker = L.marker([position.coords.latitude, position.coords.longitude]).addTo(map);
-	var marker = L.marker([39.1628136, -76.891511]).addTo(map);
-	map.flyTo([39.1628136, -76.891511], 13);
+	var marker = L.marker([39.162954, -76.90073]).addTo(map);
+	map.flyTo([39.162954, -76.90073], 13);
 	//userPosition.lat = position.coords.latitude;
 	//userPosition.lon = position.coords.longitude;
 	userPosition.lat = 39.1628136;
 	userPosition.lon = -76.891511;
-}
 
-function error() {
-	alert('Unable to retrieve your location');
-}
-
-var paths = [{ points: [] }, { points: [] }];
-
-var stops = {
-	points: [],
-};
-
-document.getElementById('btn-get-routes').onclick = function () {
-	if (userPosition.lat === 0 && userPosition.lon === 0) {
-		alert('Please update your location first');
-		return;
-	}
-	console.log('Searching best routes from', userPosition);
-	search_best_routes(userPosition).then((data) => {
+	getAgencies().then((data) => {
 		console.log(data);
-		console.log(data[0].paths[0]);
+		var agencySelect = document.getElementById('agency-select');
 
-		data[0].paths.forEach((path) => {
-			const latlngs = path.points.map((p) => [p.lat, p.lon]);
-			var polyline = L.polyline(latlngs, { color: '#' + data[0].color, weight: 3 }).addTo(map);
-		});
+		data.agencies.forEach((agency) => {
+			var option = document.createElement('option');
+			option.value = agency.tag;
+			option.text = agency.title;
+			agencySelect.appendChild(option);
 
-		data[0].stops.forEach((stop) => {
-			stops.points.push([stop.lat, stop.lon]);
-			var stopMarker = L.circleMarker([stop.lat, stop.lon], { color: 'purple' }).addTo(map);
-			stopMarker.bindPopup(`<b>${stop.tag}</b><br>Stop ID: ${stop.stopId}`);
+			agencySelect.onchange = function () {
+				let overlay = document.getElementById('map-overlay');
+				overlay.style.display = 'flex';
+
+				if (evtSource != null) {
+					closeEventSource(evtSource);
+				}
+				routesLayerGroup.clearLayers();
+
+				bntCloseConnection.disabled = false;
+				bntCloseConnection.style.cssText = 'color: green';
+				bntCloseConnection.innerText = `Monitoring ${
+					agencySelect.options[agencySelect.selectedIndex].text
+				} routes - Click to Stop`;
+				isMonitoring = true;
+
+				evtSource = getAgencyRoutes(agencySelect.value);
+
+				evtSource.onopen = function () {
+					overlay.style.display = 'none';
+				};
+			};
 		});
 	});
-};
+}
 
-async function search_best_routes(userPosition) {
-	const response = await fetch('/api/bustrack/search', {
-		method: 'POST',
+async function getAgencies() {
+	const response = await fetch('api/bustrack/agencies', {
+		method: 'GET',
 		headers: {
 			'Content-Type': 'application/json',
 		},
-		body: JSON.stringify({
-			latFrom: userPosition.lat,
-			lonFrom: userPosition.lon,
-			latTo: 39.159605,
-			lonTo: -76.893621,
-		}),
 	});
+
 	return response.json();
 }
+
+function getAgencyRoutes(agencyTag) {
+	const endpoint = `/api/bustrack/routes?agency=${agencyTag}`;
+	let es = new EventSource(endpoint);
+
+	es.onmessage = function (event) {
+		const route = JSON.parse(event.data);
+		console.log('Received data:', route);
+
+		route.paths.forEach((path) => {
+			const latlngs = path.points.map((p) => [p.lat, p.lon]);
+			L.polyline(latlngs, { color: `#${route.color}`, dashArray: '5, 5' }).addTo(routesLayerGroup);
+		}),
+			route.stops.forEach((stop) => {
+				let icon = L.icon({
+					iconUrl: 'bus-stop.png',
+					iconSize: [20, 20],
+				});
+
+				let busStopMarker = L.marker([stop.lat, stop.lon], { icon: icon }).addTo(routesLayerGroup);
+				busStopMarker.bindPopup(`<b>${stop.title}</b><br>Stop ID: ${stop.stopId}`);
+			});
+
+		routeBound = new L.LatLngBounds([
+			[route.latMax, route.lonMax],
+			[route.latMin, route.lonMin],
+		]);
+		//map.fitBounds(routeBound, { padding: [200, 200] });
+	};
+	return es;
+}
+
+function closeEventSource(evtSource) {
+	evtSource.close();
+	console.log('SSE connection closed');
+}
+
+bntCloseConnection.addEventListener('click', () => {
+	if (isMonitoring) {
+		bntCloseConnection.disabled = true;
+		bntCloseConnection.style.cssText = 'color: grey';
+		bntCloseConnection.innerText = 'Close Connection';
+		isMonitoring = false;
+	}
+});
