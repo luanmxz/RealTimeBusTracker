@@ -2,6 +2,7 @@ package com.devluanmarcene.RealTimeBusTracker.controller;
 
 import java.time.Duration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +25,9 @@ public class BusTrackController {
 
    private BusTrackService busTrackService;
 
+   @Value("${routes.poll.interval:15}")
+   private int interval;
+
    public BusTrackController(BusTrackService busTrackService) {
       this.busTrackService = busTrackService;
    }
@@ -33,7 +37,7 @@ public class BusTrackController {
          @RequestParam(name = "agency") AgencyRoutesRequest agencyRoutesRequest)
          throws JsonMappingException, JsonProcessingException {
 
-      return Flux.interval(Duration.ofSeconds(15))
+      return Flux.interval(Duration.ofSeconds(interval))
             .flatMap(tick -> busTrackService.getRoutesByAgencyTagWithPredictions(agencyRoutesRequest.agencyTag()));
    }
 

@@ -56,7 +56,7 @@ public class BusTrackService {
     public Mono<RouteList> getAgencyRoutes(Agency agency) {
         return webClientConfig.getWebClient().get()
                 .uri("https://retro.umoiq.com/service/publicXMLFeed?command=routeConfig&a={agencyTag}",
-                        agency.getTag())
+                        agency.tag())
                 .retrieve().bodyToMono(String.class)
                 .flatMap(xml -> Mono.fromCallable(() -> doXmlMapping(xml, RouteList.class))
                         .subscribeOn(Schedulers.boundedElastic()));
@@ -89,14 +89,16 @@ public class BusTrackService {
                                 : routeList.routes())
                         .subscribeOn(Schedulers.parallel())
                         .flatMap(route -> {
-                            Mono<Route> routeWithPredictions = enrichRouteWithPredictions(route,
+                            Mono<Route> routeWithPredictions = enrichRouteWithPredictions(
+                                    route,
                                     agencyTag);
                             return routeWithPredictions;
                         }, 8))
                 .flatMap(route -> {
-                    Mono<Route> routeWithVehicle = getRouteVehicles(agencyTag, route.agencyTag()).map(v -> {
-                        return Route.withVehicle(route, v.vehicles());
-                    });
+                    Mono<Route> routeWithVehicle = getRouteVehicles(agencyTag, route.agencyTag())
+                            .map(v -> {
+                                return Route.withVehicle(route, v.vehicles());
+                            });
                     return routeWithVehicle;
                 });
     }
@@ -189,7 +191,7 @@ public class BusTrackService {
                         .flatMap(agency -> getAgencyRoutes(agency)
                                 .map(routeList -> {
                                     return RouteList.createWithAgencyTag(routeList,
-                                            agency.getTag());
+                                            agency.tag());
                                 }))
                         .collectList());
 
