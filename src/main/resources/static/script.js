@@ -111,6 +111,20 @@ function getAgencyRoutes(agencyTag) {
 				busStopMarker.bindPopup(`<b>${stop.title}</b><br>Stop ID: ${stop.stopId}`);
 			});
 
+		if (route.vehicles != null && route.vehicles.length > 0) {
+			route.vehicles.forEach((v) => {
+				let icon = L.icon({
+					iconUrl: 'bus.png',
+					iconSize: [70, 70],
+				});
+
+				vehicle = L.marker([v.lat, v.lon], { icon: icon }).addTo(routesLayerGroup);
+				vehicle.bindPopup(
+					`<b>Route: ${v.routeTag}</b><br>Vehicle ID: ${v.id}<br>Speed: ${v.speedKmHr} km/h<br>Heading: ${v.heading}°`
+				);
+			});
+		}
+
 		routeBound = new L.LatLngBounds([
 			[route.latMax, route.lonMax],
 			[route.latMin, route.lonMin],
