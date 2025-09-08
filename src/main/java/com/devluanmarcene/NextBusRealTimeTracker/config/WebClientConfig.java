@@ -1,19 +1,19 @@
 package com.devluanmarcene.NextBusRealTimeTracker.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
 public class WebClientConfig {
 
+    @Value("${API_NEXT_BUS}")
+    private String API_NEXT_BUS;
+
     @Bean
     public WebClient getWebClient() {
-        int sizeInBytes = 16 * 1024 * 1024; // TODO: Remover, temporário
-        ExchangeStrategies strategies = ExchangeStrategies.builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(sizeInBytes)).build();
+        return WebClient.builder().baseUrl(API_NEXT_BUS).build();
 
-        return WebClient.builder().exchangeStrategies(strategies).build();
     }
 }
