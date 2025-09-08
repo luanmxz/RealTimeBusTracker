@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.devluanmarcene.NextBusRealTimeTracker.config.WebClientConfig;
 import com.devluanmarcene.NextBusRealTimeTracker.dto.internal.StopDTO;
+import com.devluanmarcene.NextBusRealTimeTracker.dto.internal.TravelDTO;
 import com.devluanmarcene.NextBusRealTimeTracker.dto.response.RouteListResponse;
 import com.devluanmarcene.NextBusRealTimeTracker.dto.response.RouteResponse;
 import com.devluanmarcene.NextBusRealTimeTracker.helpers.HaversineUtils;
@@ -23,7 +24,6 @@ import com.devluanmarcene.NextBusRealTimeTracker.model.BodyVehicle;
 import com.devluanmarcene.NextBusRealTimeTracker.model.LatLng;
 import com.devluanmarcene.NextBusRealTimeTracker.model.Route;
 import com.devluanmarcene.NextBusRealTimeTracker.model.RouteList;
-import com.devluanmarcene.NextBusRealTimeTracker.model.Travel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -221,7 +221,7 @@ public class BusTrackService {
                 }
         }
 
-        public Flux<RouteResponse> searchBestRouteForUserDestination(Travel travel)
+        public Flux<RouteResponse> searchBestRouteForUserDestination(TravelDTO travel)
                         throws JsonMappingException, JsonProcessingException {
 
                 Mono<AgencyList> monoAgencyList = getAgencies();

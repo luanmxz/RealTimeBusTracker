@@ -103,7 +103,7 @@ function getAgencyRoutes(agencyTag) {
 		}),
 			route.stops.forEach((stop) => {
 				let icon = L.icon({
-					iconUrl: 'bus-stop.png',
+					iconUrl: '../img/bus-stop.png',
 					iconSize: [20, 20],
 				});
 
@@ -114,7 +114,7 @@ function getAgencyRoutes(agencyTag) {
 		if (route.vehicles != null && route.vehicles.length > 0) {
 			route.vehicles.forEach((v) => {
 				let icon = L.icon({
-					iconUrl: 'bus.png',
+					iconUrl: '../img/bus.png',
 					iconSize: [70, 70],
 				});
 
