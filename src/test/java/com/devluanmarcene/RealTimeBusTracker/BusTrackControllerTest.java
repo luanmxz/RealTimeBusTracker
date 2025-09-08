@@ -21,6 +21,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import com.devluanmarcene.RealTimeBusTracker.controller.BusTrackController;
+import com.devluanmarcene.RealTimeBusTracker.dto.response.RouteResponse;
 import com.devluanmarcene.RealTimeBusTracker.model.AgencyList;
 import com.devluanmarcene.RealTimeBusTracker.model.Route;
 import com.devluanmarcene.RealTimeBusTracker.service.BusTrackService;
@@ -53,8 +54,8 @@ class BusTrackControllerTest {
                 .consumeWith(response -> {
                     AgencyList agencyList = response.getResponseBody();
                     assertNotNull(agencyList);
-                    assertEquals(1, agencyList.getAgencies().size());
-                    assertEquals("tag", agencyList.getAgencies().get(0).tag());
+                    assertEquals(1, agencyList.agencies().size());
+                    assertEquals("tag", agencyList.agencies().get(0).tag());
                 });
 
         verify(busTrackService, times(1)).getAgencies();
@@ -62,21 +63,25 @@ class BusTrackControllerTest {
 
     @Test
     void test_shouldReturnFluxOfRoutes() {
+
+        RouteResponse routeResponse = ModelBuilder.createRouteResponse();
+
         when(busTrackService.getRoutesByAgencyTagWithPredictions("agencyTag1"))
-                .thenReturn(Flux.just(ModelBuilder.createRoute()));
+                .thenReturn(Flux.just(routeResponse));
 
         webTestClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/api/bustrack/routes").queryParam("agency", "agencyTag1").build())
+                .uri(uriBuilder -> uriBuilder.path("/api/bustrack/routes")
+                        .queryParam("agency", "agencyTag1").build())
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .exchange()
                 .expectStatus().isOk()
                 .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM)
-                .returnResult(Route.class)
+                .returnResult(RouteResponse.class)
                 .consumeWith(body -> {
-                    List<Route> routes = body.getResponseBody().take(2).collectList().block();
+                    List<RouteResponse> routes = body.getResponseBody().take(2).collectList().block();
                     assertNotNull(routes);
                     assertEquals(routes.size(), 2);
-                    assertEquals(routes.get(0), ModelBuilder.createRoute());
+                    assertEquals(routes.get(0), routeResponse);
                 });
 
         verify(busTrackService, atLeastOnce()).getRoutesByAgencyTagWithPredictions("agencyTag1");
@@ -85,7 +90,7 @@ class BusTrackControllerTest {
     @Test
     void test_returnShouldBeBadRequestWhenNoAgencyParameter() {
         when(busTrackService.getRoutesByAgencyTagWithPredictions("agencyTag1"))
-                .thenReturn(Flux.just(ModelBuilder.createRoute()));
+                .thenReturn(Flux.just(ModelBuilder.createRouteResponse()));
 
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/api/bustrack/routes").build())
@@ -115,10 +120,11 @@ class BusTrackControllerTest {
     @Test
     void test_shouldStopSendindEventsAfterSSEConnectionClose() {
         when(busTrackService.getRoutesByAgencyTagWithPredictions("agencyTag1"))
-                .thenReturn(Flux.just(ModelBuilder.createRoute()));
+                .thenReturn(Flux.just(ModelBuilder.createRouteResponse()));
 
         webTestClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/api/bustrack/routes").queryParam("agency", "agencyTag1").build())
+                .uri(uriBuilder -> uriBuilder.path("/api/bustrack/routes")
+                        .queryParam("agency", "agencyTag1").build())
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .exchange()
                 .returnResult(Route.class)

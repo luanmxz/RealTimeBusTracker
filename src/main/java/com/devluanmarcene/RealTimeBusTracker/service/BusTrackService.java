@@ -11,7 +11,12 @@ import org.springframework.stereotype.Service;
 
 import com.devluanmarcene.RealTimeBusTracker.config.Constants;
 import com.devluanmarcene.RealTimeBusTracker.config.WebClientConfig;
+import com.devluanmarcene.RealTimeBusTracker.dto.internal.StopDTO;
+import com.devluanmarcene.RealTimeBusTracker.dto.response.RouteListResponse;
+import com.devluanmarcene.RealTimeBusTracker.dto.response.RouteResponse;
 import com.devluanmarcene.RealTimeBusTracker.helpers.HaversineUtils;
+import com.devluanmarcene.RealTimeBusTracker.mapper.RouteListMapper;
+import com.devluanmarcene.RealTimeBusTracker.mapper.RouteMapper;
 import com.devluanmarcene.RealTimeBusTracker.model.Agency;
 import com.devluanmarcene.RealTimeBusTracker.model.AgencyList;
 import com.devluanmarcene.RealTimeBusTracker.model.BodyPredictions;
@@ -19,7 +24,6 @@ import com.devluanmarcene.RealTimeBusTracker.model.BodyVehicle;
 import com.devluanmarcene.RealTimeBusTracker.model.LatLng;
 import com.devluanmarcene.RealTimeBusTracker.model.Route;
 import com.devluanmarcene.RealTimeBusTracker.model.RouteList;
-import com.devluanmarcene.RealTimeBusTracker.model.Stop;
 import com.devluanmarcene.RealTimeBusTracker.model.Travel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -77,7 +81,7 @@ public class BusTrackService {
 
     }
 
-    public Flux<Route> getRoutesByAgencyTagWithPredictions(String agencyTag) {
+    public Flux<RouteResponse> getRoutesByAgencyTagWithPredictions(String agencyTag) {
         return webClientConfig.getWebClient().get()
                 .uri("https://retro.umoiq.com/service/publicXMLFeed?command=routeConfig&a={agencyTag}",
                         agencyTag)
@@ -89,34 +93,43 @@ public class BusTrackService {
                                 : routeList.routes())
                         .subscribeOn(Schedulers.parallel())
                         .flatMap(route -> {
-                            Mono<Route> routeWithPredictions = enrichRouteWithPredictions(
-                                    route,
+                            RouteResponse routeResponse = RouteMapper.fromRoute(route).build();
+                            Mono<RouteResponse> routeWithPredictions = enrichRouteWithPredictions(
+                                    routeResponse,
                                     agencyTag);
                             return routeWithPredictions;
                         }, 8))
-                .flatMap(route -> {
-                    Mono<Route> routeWithVehicle = getRouteVehicles(agencyTag, route.agencyTag())
+                .flatMap(routeResponse -> {
+                    Mono<RouteResponse> routeWithVehicle = getRouteVehicles(agencyTag,
+                            routeResponse.tag())
                             .map(v -> {
-                                return Route.withVehicle(route, v.vehicles());
+                                return RouteResponse.Builder.from(routeResponse)
+                                        .vehicles(v.vehicles())
+                                        .build();
                             });
                     return routeWithVehicle;
                 });
     }
 
-    private Mono<Route> enrichRouteWithPredictions(Route route, String agencyTag) {
+    private Mono<RouteResponse> enrichRouteWithPredictions(RouteResponse routeResponse, String agencyTag) {
         final int stopConcurrency = 16;
 
-        return Flux.fromIterable(route.stops() == null ? Collections.emptyList() : route.stops())
-                .flatMap(stop -> getPredictionByStopTagAndRoute(agencyTag, stop.tag(), route.tag())
+        return Flux.fromIterable(routeResponse.stops() == null ? Collections.emptyList() : routeResponse.stops())
+                .flatMap(stop -> getPredictionByStopTagAndRoute(agencyTag, stop.tag(), routeResponse.tag())
                         .timeout(Duration.ofSeconds(3))
-                        .map(bodyPredictions -> Stop.withPredictions(stop,
-                                bodyPredictions.getPredictions())),
+                        .map(bodyPredictions -> StopDTO.Builder.from(stop).predictions(bodyPredictions.predictions())
+                                .build()),
                         stopConcurrency)
                 .collectList()
                 .map(enrichedStops -> {
-                    Route routeWithAgency = Route.withAgencyTag(route, agencyTag);
-                    Route routeWithStops = Route.withStops(routeWithAgency, enrichedStops);
-                    return routeWithStops;
+
+                    RouteResponse routeResponseWithStops = RouteResponse.Builder
+                            .from(routeResponse)
+                            .agencyTag(agencyTag)
+                            .stops(enrichedStops)
+                            .build();
+
+                    return routeResponseWithStops;
                 });
 
     }
@@ -168,8 +181,8 @@ public class BusTrackService {
             XmlMapper xmlMapper = XmlMapper.builder()
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                     .configure(MapperFeature.INFER_CREATOR_FROM_CONSTRUCTOR_PROPERTIES, true)
-                    .configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true)
                     .build();
+
             xmlMapper.registerModule(new ParameterNamesModule());
 
             T clazz = xmlMapper.readValue(xmlString, desiredClass);
@@ -181,31 +194,31 @@ public class BusTrackService {
         }
     }
 
-    public Flux<Route> searchBestRouteForUserDestination(Travel travel)
+    public Flux<RouteResponse> searchBestRouteForUserDestination(Travel travel)
             throws JsonMappingException, JsonProcessingException {
 
         Mono<AgencyList> monoAgencyList = getAgencies();
 
-        Mono<List<RouteList>> routeListMono = monoAgencyList
-                .flatMap(agencyList -> Flux.fromIterable(agencyList.getAgencies())
+        Mono<List<RouteListResponse>> routeListMono = monoAgencyList
+                .flatMap(agencyList -> Flux.fromIterable(agencyList.agencies())
                         .flatMap(agency -> getAgencyRoutes(agency)
                                 .map(routeList -> {
-                                    return RouteList.createWithAgencyTag(routeList,
-                                            agency.tag());
+                                    return RouteListMapper.fromRouteList(routeList).agencyTag(agency.tag()).build();
                                 }))
                         .collectList());
 
-        Flux<Tuple2<Route, List<Stop>>> fluxRoute = routeListMono
+        Flux<Tuple2<RouteResponse, List<StopDTO>>> fluxRoute = routeListMono
                 .flatMapMany(list -> Flux.fromIterable(list == null ? Collections.emptyList() : list))
                 .flatMap(routeList -> Flux
                         .fromIterable(routeList.routes() == null ? Collections.emptyList()
                                 : routeList.routes())
                         .publishOn(Schedulers.parallel())
                         .map(route -> {
-                            Route newRoute = Route.withAgencyTag(route,
-                                    routeList.agencyTag());
 
-                            List<Stop> stopsWithDistance = newRoute.stops().stream()
+                            RouteResponse routeResponse = RouteMapper.fromRoute(route).agencyTag(routeList.agencyTag())
+                                    .build();
+
+                            List<StopDTO> stopsWithDistance = routeResponse.stops().stream()
                                     .map(stop -> {
                                         double distance = HaversineUtils
                                                 .distanceMeters(
@@ -215,27 +228,25 @@ public class BusTrackService {
                                                         new LatLng(stop.lat(),
                                                                 stop.lon()));
 
-                                        Stop enriched = Stop
-                                                .withDistanceFromUserDestination(
-                                                        stop,
-                                                        distance);
+                                        StopDTO stopWithDistanceFromUserDestination = StopDTO.Builder.from(stop)
+                                                .distanceFromUserDestination(distance).build();
 
-                                        return enriched;
+                                        return stopWithDistanceFromUserDestination;
                                     }).collect(Collectors.toList());
 
-                            return Tuples.of(newRoute, stopsWithDistance);
+                            return Tuples.of(routeResponse, stopsWithDistance);
                         }));
 
-        Flux<Tuple2<Route, List<Stop>>> filteredRoutes = fluxRoute.filter(tuple -> tuple.getT2().stream()
+        Flux<Tuple2<RouteResponse, List<StopDTO>>> filteredRoutes = fluxRoute.filter(tuple -> tuple.getT2().stream()
                 .anyMatch(stopDistance -> stopDistance.distanceFromUserDestination() <= 1000));
 
-        Flux<Route> orderedRoutes = filteredRoutes.map(tuple -> {
-            Route newRoute = Route.withStops(tuple.getT1(), tuple.getT2());
+        Flux<RouteResponse> orderedRoutes = filteredRoutes.map(tuple -> {
+            RouteResponse routeResponse = RouteResponse.Builder.from(tuple.getT1()).stops(tuple.getT2()).build();
 
-            double minDistance = tuple.getT2().stream().mapToDouble(Stop::distanceFromUserDestination)
+            double minDistance = tuple.getT2().stream().mapToDouble(StopDTO::distanceFromUserDestination)
                     .min().orElse(Double.MAX_VALUE);
 
-            return Tuples.of(newRoute, minDistance);
+            return Tuples.of(routeResponse, minDistance);
         }).sort(Comparator.comparingDouble(Tuple2::getT2))
                 .map(Tuple2::getT1);
 

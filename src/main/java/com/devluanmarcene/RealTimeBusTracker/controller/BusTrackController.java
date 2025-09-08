@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.devluanmarcene.RealTimeBusTracker.dto.request.AgencyRoutesRequest;
+import com.devluanmarcene.RealTimeBusTracker.dto.response.RouteResponse;
 import com.devluanmarcene.RealTimeBusTracker.model.AgencyList;
-import com.devluanmarcene.RealTimeBusTracker.model.Route;
-import com.devluanmarcene.RealTimeBusTracker.model.request.AgencyRoutesRequest;
 import com.devluanmarcene.RealTimeBusTracker.service.BusTrackService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -33,7 +33,7 @@ public class BusTrackController {
    }
 
    @GetMapping(path = "/routes", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-   public Flux<Route> getRoutesByAgencyTag(
+   public Flux<RouteResponse> getRoutesByAgencyTag(
          @RequestParam(name = "agency") AgencyRoutesRequest agencyRoutesRequest)
          throws JsonMappingException, JsonProcessingException {
 

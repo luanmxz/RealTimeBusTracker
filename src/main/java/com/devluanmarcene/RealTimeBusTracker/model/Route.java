@@ -11,34 +11,17 @@ public record Route(
                 @JacksonXmlProperty(isAttribute = true) String shortTitle,
                 @JacksonXmlProperty(isAttribute = true) String color,
                 @JacksonXmlProperty(isAttribute = true) String oppositeColor,
-                String agencyTag,
                 @JacksonXmlProperty(isAttribute = true) Double latMin,
                 @JacksonXmlProperty(isAttribute = true) Double latMax,
                 @JacksonXmlProperty(isAttribute = true) Double lonMin,
                 @JacksonXmlProperty(isAttribute = true) Double lonMax,
                 @JacksonXmlElementWrapper(useWrapping = false) @JacksonXmlProperty(localName = "stop") List<Stop> stops,
                 @JacksonXmlProperty(localName = "direction") Direction direction,
-                @JacksonXmlElementWrapper(useWrapping = false) @JacksonXmlProperty(localName = "path") List<Path> paths,
-                List<Vehicle> vehicle) {
-
-        public static Route withAgencyTag(Route route, String agencyTag) {
-                return new Route(route.tag(), route.title(), route.shortTitle(), route.color(), route.oppositeColor(),
-                                agencyTag,
-                                route.latMin(), route.latMax(), route.lonMin(), route.lonMax(), route.stops(),
-                                route.direction(), route.paths(), route.vehicle());
-        }
+                @JacksonXmlElementWrapper(useWrapping = false) @JacksonXmlProperty(localName = "path") List<Path> paths) {
 
         public static Route withStops(Route route, List<Stop> stops) {
                 return new Route(route.tag(), route.title(), route.shortTitle(), route.color(), route.oppositeColor(),
-                                route.agencyTag(),
                                 route.latMin(), route.latMax(), route.lonMin(), route.lonMax(), stops,
-                                route.direction(), route.paths(), route.vehicle());
-        }
-
-        public static Route withVehicle(Route route, List<Vehicle> vehicles) {
-                return new Route(route.tag(), route.title(), route.shortTitle(), route.color(), route.oppositeColor(),
-                                route.agencyTag(),
-                                route.latMin(), route.latMax(), route.lonMin(), route.lonMax(), route.stops(),
-                                route.direction(), route.paths(), vehicles);
+                                route.direction(), route.paths());
         }
 }

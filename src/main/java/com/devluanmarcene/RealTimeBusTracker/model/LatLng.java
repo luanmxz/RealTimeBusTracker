@@ -7,6 +7,7 @@ package com.devluanmarcene.RealTimeBusTracker.model;
  * @param lon longitude em graus (-180 .. 180)
  */
 public record LatLng(double lat, double lon) {
+
     public LatLng {
         if (Double.isNaN(lat) || lat < -90.0 || lat > 90.0) {
             throw new IllegalArgumentException("Latitude inválida: " + lat);

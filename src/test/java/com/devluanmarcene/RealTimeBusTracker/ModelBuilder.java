@@ -1,38 +1,48 @@
 package com.devluanmarcene.RealTimeBusTracker;
 
 import java.util.List;
+import java.util.Random;
+import java.util.random.RandomGenerator;
 
+import com.devluanmarcene.RealTimeBusTracker.dto.internal.StopDTO;
+import com.devluanmarcene.RealTimeBusTracker.dto.response.RouteResponse;
 import com.devluanmarcene.RealTimeBusTracker.model.Agency;
 import com.devluanmarcene.RealTimeBusTracker.model.AgencyList;
 import com.devluanmarcene.RealTimeBusTracker.model.Predictions;
-import com.devluanmarcene.RealTimeBusTracker.model.Route;
-import com.devluanmarcene.RealTimeBusTracker.model.Stop;
 
 class ModelBuilder {
 
     public static AgencyList createAgencyList() {
         Agency agency1 = new Agency("tag", "title", "regionTitle", "shortTitle");
-        AgencyList agencyList = new AgencyList();
-        agencyList.setAgencies(List.of(agency1));
+        AgencyList agencyList = new AgencyList(List.of(agency1));
 
         return agencyList;
     }
 
-    public static Route createRoute() {
+    public static RouteResponse createRouteResponse() {
         Predictions predictions1 = new Predictions("predictions1", "route1", "routeTitle1", "stopTitle1", "stop1", null,
                 null, null);
 
-        Stop stop1 = new Stop("stop1", "stopTitle1", "shortTitle1", 39.1628136,
-                -76.891511, 1L, 0, predictions1);
+        StopDTO stop1 = new StopDTO.Builder()
+                .tag("stop1")
+                .title("stopTitle1")
+                .lat(39.1628136)
+                .lon(-76.891511)
+                .stopId(1L)
+                .distanceFromUserDestination(0)
+                .predictions(predictions1).build();
 
-        Route route1 = new Route(
-                "route1",
-                "routeTitle1",
-                "shortTitle1",
-                "#ffff",
-                "#000",
-                "agencyTag1",
-                39.1628136, -76.891511, 39.159605, -76.893621, List.of(stop1), null, null, null);
+        RouteResponse route1 = new RouteResponse.Builder()
+                .tag("route1")
+                .title("routeTitle1")
+                .color("#fff")
+                .agencyTag("agencyTag1")
+                .latMax(Random.from(RandomGenerator.getDefault()).nextDouble())
+                .latMin(Random.from(RandomGenerator.getDefault()).nextDouble())
+                .lonMax(Random.from(RandomGenerator.getDefault()).nextDouble())
+                .lonMin(Random.from(RandomGenerator.getDefault()).nextDouble())
+                .stops(List.of(stop1))
+                .build();
 
         return route1;
     }

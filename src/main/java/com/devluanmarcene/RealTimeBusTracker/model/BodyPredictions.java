@@ -6,16 +6,6 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 
 @JacksonXmlRootElement(localName = "body")
 @JsonIgnoreProperties(value = "copyright")
-public class BodyPredictions {
-
-    @JacksonXmlProperty(localName = "predictions", isAttribute = true)
-    private Predictions predictions;
-
-    public Predictions getPredictions() {
-        return predictions;
-    }
-
-    public void setPredictions(Predictions predictions) {
-        this.predictions = predictions;
-    }
+public record BodyPredictions(
+        @JacksonXmlProperty(localName = "predictions", isAttribute = true) Predictions predictions) {
 }

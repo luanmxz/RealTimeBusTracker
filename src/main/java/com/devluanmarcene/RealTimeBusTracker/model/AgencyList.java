@@ -9,18 +9,7 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 
 @JacksonXmlRootElement(localName = "body")
 @JsonIgnoreProperties(value = "copyright")
-public class AgencyList {
-
-    @JacksonXmlElementWrapper(useWrapping = false)
-    @JacksonXmlProperty(localName = "agency")
-    private List<Agency> agencies;
-
-    public List<Agency> getAgencies() {
-        return agencies;
-    }
-
-    public void setAgencies(List<Agency> agencies) {
-        this.agencies = agencies;
-    }
+public record AgencyList(
+        @JacksonXmlElementWrapper(useWrapping = false) @JacksonXmlProperty(localName = "agency") List<Agency> agencies) {
 
 }
