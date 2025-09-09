@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
@@ -46,6 +47,7 @@ public class BusTrackService {
                 this.webClientConfig = webClientConfig;
         }
 
+        @Cacheable("agencies")
         public Mono<AgencyList> getAgencies() {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
