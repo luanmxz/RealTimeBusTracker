@@ -26,6 +26,11 @@ public class IpRateLimiterConfig extends OncePerRequestFilter {
     private final Map<String, RateLimiter> limiters = new ConcurrentHashMap<>();
 
     @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        return !request.getRequestURI().equals("/api/bustrack/routes");
+    }
+
+    @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {

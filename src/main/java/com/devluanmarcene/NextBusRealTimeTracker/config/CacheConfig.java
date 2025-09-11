@@ -20,6 +20,7 @@ public class CacheConfig {
                 .maximumSize(200));
 
         cacheManager.setAsyncCacheMode(true);
+        cacheManager.setAllowNullValues(false);
 
         return cacheManager;
     }
