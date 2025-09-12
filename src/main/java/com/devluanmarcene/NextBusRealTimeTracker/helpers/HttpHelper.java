@@ -6,6 +6,13 @@ import jakarta.servlet.http.HttpServletRequest;
 
 public class HttpHelper {
 
+    /**
+     * Try the get the User real ip using the header 'x-forwarded-for' and some
+     * fallbacks methods
+     * 
+     * @param request
+     * @return
+     */
     public static String getIp(HttpServletRequest request) {
         String ip = request.getHeader("x-forwarded-for");
 

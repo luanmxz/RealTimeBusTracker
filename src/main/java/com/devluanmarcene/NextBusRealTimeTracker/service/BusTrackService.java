@@ -47,6 +47,11 @@ public class BusTrackService {
                 this.webClientConfig = webClientConfig;
         }
 
+        /**
+         * Gets a list of agencies from retroumoiq api
+         * 
+         * @return Mono<AgencyList> -> contains a list of Agency
+         */
         @Cacheable("agencies")
         public Mono<AgencyList> getAgencies() {
                 return webClientConfig.getWebClient().get()
@@ -55,9 +60,23 @@ public class BusTrackService {
                                                 .build())
                                 .accept(MediaType.APPLICATION_XML)
                                 .retrieve().bodyToMono(String.class)
-                                .map(xmlString -> doXmlMapping(xmlString, AgencyList.class));
+                                .map(xmlString -> doXmlMapping(xmlString, AgencyList.class))
+                                .doOnNext(agencyList -> {
+                                        System.out.println("Agencies retrivied: [");
+                                        for (Agency agency : agencyList.agencies()) {
+                                                System.out.println(String.format("Agency tag %s - Agency Title %s",
+                                                                agency.tag(), agency.title()));
+                                        }
+                                        System.out.println("]");
+                                });
         }
 
+        /**
+         * Gets all routes from agency
+         * 
+         * @param agency
+         * @return Mono<RouteList>
+         */
         public Mono<RouteList> getAgencyRoutes(Agency agency) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -69,6 +88,12 @@ public class BusTrackService {
                                                 .subscribeOn(Schedulers.boundedElastic()));
         }
 
+        /**
+         * Gets all routes from agency
+         * 
+         * @param agencyTag
+         * @return Flux<Route>
+         */
         public Flux<Route> getRoutesByAgencyTag(String agencyTag) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -86,6 +111,13 @@ public class BusTrackService {
 
         }
 
+        /**
+         * Gets all routes from agency, and enrich the route with their stop predictions
+         * and info about the bus vehicle doing that route
+         * 
+         * @param agencyTag
+         * @return Flux<RouteResponse>
+         */
         public Flux<RouteResponse> getRoutesByAgencyTagWithPredictions(String agencyTag) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -119,6 +151,13 @@ public class BusTrackService {
                                 });
         }
 
+        /**
+         * Enrich a route with stop predictions
+         * 
+         * @param routeResponse
+         * @param agencyTag
+         * @return Mono<RouteResponse>
+         */
         private Mono<RouteResponse> enrichRouteWithPredictions(RouteResponse routeResponse, String agencyTag) {
                 final int stopConcurrency = 16;
 
@@ -145,6 +184,13 @@ public class BusTrackService {
 
         }
 
+        /**
+         * Get the predictions of and stop by the stop id
+         * 
+         * @param agencyTag
+         * @param stopId
+         * @return Mono<String>
+         */
         public Mono<String> getPredictionByStopId(String agencyTag, long stopId) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -155,6 +201,14 @@ public class BusTrackService {
                                 .retrieve().bodyToMono(String.class);
         }
 
+        /**
+         * Get the predictions of and stop by the stop id and route tag
+         * 
+         * @param agencyTag
+         * @param stopId
+         * @param routeTag
+         * @return Mono<String>
+         */
         public Mono<String> getPredictionByStopId(String agencyTag, long stopId, String routeTag) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -166,6 +220,14 @@ public class BusTrackService {
                                 .retrieve().bodyToMono(String.class);
         }
 
+        /**
+         * Get the predictions of and stop by the stop tag and route tag
+         * 
+         * @param agencyTag
+         * @param stopTag
+         * @param routeTag
+         * @return Mono<BodyPredictions>
+         */
         public Mono<BodyPredictions> getPredictionByStopTagAndRoute(String agencyTag, String stopTag, String routeTag) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -179,6 +241,13 @@ public class BusTrackService {
 
         }
 
+        /**
+         * Get info about all vehicles of a route
+         * 
+         * @param agencyTag
+         * @param routeTag
+         * @return Mono<BodyVehicle>
+         */
         public Mono<BodyVehicle> getRouteVehicles(String agencyTag, String routeTag) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -192,6 +261,13 @@ public class BusTrackService {
                                 .map(xml -> doXmlMapping(xml, BodyVehicle.class));
         }
 
+        /**
+         * Get info about a specificy vehicle
+         * 
+         * @param agencyTag
+         * @param vehicleId
+         * @return Mono<BodyVehicle>
+         */
         public Mono<BodyVehicle> getVehicleById(String agencyTag, String vehicleId) {
                 return webClientConfig.getWebClient().get()
                                 .uri(uriBuilder -> uriBuilder
@@ -204,6 +280,14 @@ public class BusTrackService {
                                 .map(xml -> doXmlMapping(xml, BodyVehicle.class));
         }
 
+        /**
+         * Map a string containing a xml object to the class received as a parameter
+         * 
+         * @param <T>
+         * @param xmlString
+         * @param desiredClass
+         * @return <T>.class
+         */
         public <T> T doXmlMapping(String xmlString, Class<T> desiredClass) {
                 try {
 
@@ -223,6 +307,16 @@ public class BusTrackService {
                 }
         }
 
+        /**
+         * Search the nearby stop from the user destination (travel latTo - lonTo),
+         * return the route that contain the stop. The returned route is ordered by the
+         * Stop distance from the user destination
+         * 
+         * @param travel
+         * @return Flux<RouteResponse>
+         * @throws JsonMappingException
+         * @throws JsonProcessingException
+         */
         public Flux<RouteResponse> searchBestRouteForUserDestination(TravelDTO travel)
                         throws JsonMappingException, JsonProcessingException {
 
