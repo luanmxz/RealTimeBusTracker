@@ -26,11 +26,6 @@ public class IpRateLimiterConfig extends OncePerRequestFilter {
     private final Map<String, RateLimiter> limiters = new ConcurrentHashMap<>();
 
     @Override
-    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return !request.getRequestURI().equals("/api/bustrack/routes");
-    }
-
-    @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
@@ -52,7 +47,7 @@ public class IpRateLimiterConfig extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (RequestNotPermitted ex) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.getWriter().write("Too many request, wait at least 5 seconds to try again.");
+            response.getWriter().write("Too many request");
         }
     }
 

@@ -16,6 +16,7 @@ import com.devluanmarcene.NextBusRealTimeTracker.dto.internal.TravelDTO;
 import com.devluanmarcene.NextBusRealTimeTracker.dto.response.RouteListResponse;
 import com.devluanmarcene.NextBusRealTimeTracker.dto.response.RouteResponse;
 import com.devluanmarcene.NextBusRealTimeTracker.helpers.HaversineUtils;
+import com.devluanmarcene.NextBusRealTimeTracker.helpers.XmlUtils;
 import com.devluanmarcene.NextBusRealTimeTracker.mapper.RouteListMapper;
 import com.devluanmarcene.NextBusRealTimeTracker.mapper.RouteMapper;
 import com.devluanmarcene.NextBusRealTimeTracker.model.Agency;
@@ -26,11 +27,7 @@ import com.devluanmarcene.NextBusRealTimeTracker.model.LatLng;
 import com.devluanmarcene.NextBusRealTimeTracker.model.Route;
 import com.devluanmarcene.NextBusRealTimeTracker.model.RouteList;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -60,7 +57,7 @@ public class BusTrackService {
                                                 .build())
                                 .accept(MediaType.APPLICATION_XML)
                                 .retrieve().bodyToMono(String.class)
-                                .map(xmlString -> doXmlMapping(xmlString, AgencyList.class))
+                                .map(xmlString -> XmlUtils.doXmlMapping(xmlString, AgencyList.class))
                                 .doOnNext(agencyList -> {
                                         System.out.println("Agencies retrivied: [");
                                         for (Agency agency : agencyList.agencies()) {
@@ -84,7 +81,7 @@ public class BusTrackService {
                                                 .queryParam("a", agency)
                                                 .build())
                                 .retrieve().bodyToMono(String.class)
-                                .flatMap(xml -> Mono.fromCallable(() -> doXmlMapping(xml, RouteList.class))
+                                .flatMap(xml -> Mono.fromCallable(() -> XmlUtils.doXmlMapping(xml, RouteList.class))
                                                 .subscribeOn(Schedulers.boundedElastic()));
         }
 
@@ -101,7 +98,7 @@ public class BusTrackService {
                                                 .queryParam("a", agencyTag)
                                                 .build())
                                 .retrieve().bodyToMono(String.class)
-                                .flatMap(xml -> Mono.fromCallable(() -> doXmlMapping(xml, RouteList.class))
+                                .flatMap(xml -> Mono.fromCallable(() -> XmlUtils.doXmlMapping(xml, RouteList.class))
                                                 .subscribeOn(Schedulers.boundedElastic()))
                                 .flatMapMany(routeList -> Flux
                                                 .fromIterable(routeList.routes() == null
@@ -125,7 +122,7 @@ public class BusTrackService {
                                                 .queryParam("a", agencyTag)
                                                 .build())
                                 .retrieve().bodyToMono(String.class)
-                                .flatMap(xml -> Mono.fromCallable(() -> doXmlMapping(xml, RouteList.class))
+                                .flatMap(xml -> Mono.fromCallable(() -> XmlUtils.doXmlMapping(xml, RouteList.class))
                                                 .subscribeOn(Schedulers.boundedElastic()))
                                 .flatMapMany(routeList -> Flux
                                                 .fromIterable(routeList.routes() == null ? Collections.emptyList()
@@ -237,7 +234,7 @@ public class BusTrackService {
                                                 .queryParam("s", stopTag)
                                                 .build())
                                 .retrieve().bodyToMono(String.class)
-                                .map(xml -> doXmlMapping(xml, BodyPredictions.class));
+                                .map(xml -> XmlUtils.doXmlMapping(xml, BodyPredictions.class));
 
         }
 
@@ -258,7 +255,7 @@ public class BusTrackService {
                                                 .build())
                                 .retrieve()
                                 .bodyToMono(String.class)
-                                .map(xml -> doXmlMapping(xml, BodyVehicle.class));
+                                .map(xml -> XmlUtils.doXmlMapping(xml, BodyVehicle.class));
         }
 
         /**
@@ -277,34 +274,7 @@ public class BusTrackService {
                                                 .build())
                                 .retrieve()
                                 .bodyToMono(String.class)
-                                .map(xml -> doXmlMapping(xml, BodyVehicle.class));
-        }
-
-        /**
-         * Map a string containing a xml object to the class received as a parameter
-         * 
-         * @param <T>
-         * @param xmlString
-         * @param desiredClass
-         * @return <T>.class
-         */
-        public <T> T doXmlMapping(String xmlString, Class<T> desiredClass) {
-                try {
-
-                        XmlMapper xmlMapper = XmlMapper.builder()
-                                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                                        .configure(MapperFeature.INFER_CREATOR_FROM_CONSTRUCTOR_PROPERTIES, true)
-                                        .build();
-
-                        xmlMapper.registerModule(new ParameterNamesModule());
-
-                        T clazz = xmlMapper.readValue(xmlString, desiredClass);
-                        System.out.println(clazz);
-
-                        return clazz;
-                } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
-                }
+                                .map(xml -> XmlUtils.doXmlMapping(xml, BodyVehicle.class));
         }
 
         /**
